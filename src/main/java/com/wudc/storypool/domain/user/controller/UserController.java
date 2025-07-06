@@ -58,4 +58,6 @@ public class UserController {
         String newUrl = body.get("newProfileImageUrl");
         return ResponseEntity.ok(userService.confirmImage(userId, newUrl));
     }
+
+
 }
