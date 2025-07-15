@@ -4,6 +4,7 @@ import com.wudc.storypool.global.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -32,16 +33,28 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 인증 예외 URL 허용
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger / API docs
                         .requestMatchers(
-                                "/api/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/auth/**",
-                                "/swagger/**",
-                                "/h2-console/**",
-                                "/"
+                                "/swagger/**"
                         ).permitAll()
+
+                        // H2 콘솔
+                        .requestMatchers("/h2-console/**").permitAll()
+
+                        // 인증 없이 접근 허용할 엔드포인트
+                        .requestMatchers(HttpMethod.GET, "/").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/send-code",
+                                "/api/auth/verify-code",
+                                "/api/auth/signup",
+                                "/api/auth/login",
+                                "/api/auth/refresh"
+                        ).permitAll()
+
+                        // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
                 // H2 콘솔을 위해 frameOptions 비활성화

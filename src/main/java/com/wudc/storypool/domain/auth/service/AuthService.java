@@ -5,6 +5,7 @@ import com.wudc.storypool.domain.user.entity.User;
 import com.wudc.storypool.domain.user.repository.UserRepository;
 import de.huxhorn.sulky.ulid.ULID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,14 +15,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RequiredArgsConstructor
 @Service
+@Transactional
 public class AuthService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final ULID ulid = new ULID();
 
     // in-memory stores
-    private final Map<String,String> emailTokens = new ConcurrentHashMap<>();
-    private final Map<String,String> refreshStore = new ConcurrentHashMap<>();
+    private final Map<String,String> emailTokenStore = new ConcurrentHashMap<>();
+    private final Map<String,String> accessTokenStore = new ConcurrentHashMap<>();
+    private final Map<String,String> refreshTokenStore = new ConcurrentHashMap<>();
+
+    public ValidateResponse validate() {
+        return new ValidateResponse("유효한 토큰입니다.", getUserId());
+    }
 
     public EmailCodeResponse sendEmailCode(EmailCodeRequest req) {
         // ignore actual send, return fixed TTL
@@ -31,20 +38,19 @@ public class AuthService {
     public EmailTokenResponse verifyEmailCode(EmailTokenRequest req) {
         // accept any code, generate token
         String token = ulid.nextULID();
-        emailTokens.put(req.getEmail(), token);
+        emailTokenStore.put(req.getEmail(), token);
         return new EmailTokenResponse(token);
     }
 
-    @Transactional
     public SignUpResponse signup(SignUpRequest req) {
-        String savedToken = emailTokens.get(req.getEmail());
+        String savedToken = emailTokenStore.remove(req.getEmail());
         if (savedToken == null || !savedToken.equals(req.getEmailToken())) {
             return new SignUpResponse(false);
         }
         User user = User.builder()
                 .email(req.getEmail())
                 .password(passwordEncoder.encode(req.getPassword()))
-                .nickname("")
+                .nickname(req.getEmail().split("@")[0])
                 .profileImageUrl("")
                 .description("")
                 .role(User.Role.USER)
@@ -59,36 +65,34 @@ public class AuthService {
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid credentials");
         }
-        String access = ulid.nextULID();
-        String refresh = ulid.nextULID();
-        refreshStore.put(refresh, user.getId());
-        return new LoginResponse(access, refresh);
+        String accessToken = ulid.nextULID();
+        String refreshToken = ulid.nextULID();
+        accessTokenStore.put(accessToken, user.getId());
+        refreshTokenStore.put(refreshToken, user.getId());
+        return new LoginResponse(accessToken, refreshToken);
     }
 
     public RefreshResponse refresh(RefreshRequest req) {
-        if (!refreshStore.containsKey(req.getRefreshToken())) {
+        if (!refreshTokenStore.containsKey(req.getRefreshToken())) {
             throw new IllegalArgumentException("Invalid refresh token");
         }
-        String newAccess = ulid.nextULID();
-        String newRefresh = ulid.nextULID();
-        String userId = refreshStore.remove(req.getRefreshToken());
-        refreshStore.put(newRefresh, userId);
-        return new RefreshResponse(newAccess, newRefresh);
+        String newAccessToken = ulid.nextULID();
+        String newRefreshToken = ulid.nextULID();
+        accessTokenStore.put(newAccessToken, getUserId());
+        refreshTokenStore.put(newRefreshToken, getUserId());
+        accessTokenStore.remove(req.getAccessToken());
+        refreshTokenStore.remove(req.getRefreshToken());
+        return new RefreshResponse(newAccessToken, newRefreshToken);
     }
 
-    public void logout(LogoutRequest req) {
-        refreshStore.remove(req.getRefreshToken());
+    public LogoutResponse logout(LogoutRequest req) {
+        accessTokenStore.remove(req.getAccessToken());
+        refreshTokenStore.remove(req.getRefreshToken());
+        return new LogoutResponse("로그아웃되었습니다.");
     }
 
-    @Transactional
-    public void withdraw(WithdrawRequest req) {
-        // simple removal
-        User user = userRepository.findById(req.getAccessToken())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid password");
-        }
-        userRepository.delete(user);
-        refreshStore.remove(req.getRefreshToken());
+    public String getUserId() {
+        String accessToken = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
+        return accessTokenStore.get(accessToken);
     }
 }

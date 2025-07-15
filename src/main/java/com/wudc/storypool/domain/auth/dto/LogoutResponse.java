@@ -5,6 +5,6 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class EmailTokenResponse {
-    private String tokenToken;
+public class LogoutResponse {
+    private String message;
 }

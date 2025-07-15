@@ -1,10 +1,14 @@
 package com.wudc.storypool.domain.auth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
 @Getter
 public class SignUpRequest {
+    @Schema(example = "wudc@storypool.com")
     private String email;
+    @Schema(example = "")
     private String emailToken;
+    @Schema(example = "pusan2015!")
     private String password;
 }

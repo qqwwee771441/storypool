@@ -7,9 +7,9 @@ import java.util.List;
 public class JwtAuthenticationToken extends AbstractAuthenticationToken {
     private final String principal;
 
-    public JwtAuthenticationToken(String userId) {
+    public JwtAuthenticationToken(String accessToken) {
         super(List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        this.principal = userId;
+        this.principal = accessToken;
         setAuthenticated(true);
     }
 

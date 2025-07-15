@@ -32,12 +32,9 @@ public class User extends BaseEntity {
 
     public enum Role { USER, ADMIN }
 
-    public void updateProfile(String nickname, String description) {
+    public void updateProfile(String nickname, String profileImageUrl, String description) {
         this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
         this.description = description;
-    }
-
-    public void changePassword(String newPassword) {
-        this.password = newPassword;
     }
 }
