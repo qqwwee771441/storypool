@@ -6,5 +6,5 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class EmailTokenResponse {
-    private String tokenToken;
+    private String emailToken;
 }
